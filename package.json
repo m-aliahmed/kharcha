@@ -1,0 +1,24 @@
+{
+  "name": "kharcha",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simple expense and budget tracker (PKR) for Android",
+  "scripts": {
+    "build:native": "esbuild src/native.js --bundle --minify --format=iife --target=chrome89 --outfile=www/native.js",
+    "sync": "npm run build:native && cap sync android",
+    "apk": "npm run sync && cd android && ./gradlew assembleRelease",
+    "apk:debug": "npm run sync && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.5.3",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "esbuild": "^0.25.12"
+  }
+}

@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Signing keys and passwords (never commit these)
+keystore/
+android/keystore.properties
+*.jks
+*.keystore
+.env
+.env.*
+
+# Build output
+*.apk
+*.aab
+www/native.js
+
+# Logs
+*.log
+
+# Editor and OS files
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,14 @@
+{
+  "appId": "com.kharcha.app",
+  "appName": "Kharcha",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#f4f5f7"
+  },
+  "plugins": {
+    "SystemBars": {
+      "insetsHandling": "css",
+      "style": "DEFAULT"
+    }
+  }
+}
