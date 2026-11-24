@@ -293,3 +293,6 @@ main { padding: 0 16px; }
 
 .muted { color: var(--muted); }
 .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 2px; }
+
+.top-actions { display: flex; gap: 2px; }
+.search-box { position: sticky; top: 0; background: var(--card); padding-bottom: 6px; z-index: 1; }

@@ -4,5 +4,6 @@ import { Preferences } from '@capacitor/preferences';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
 import { App } from '@capacitor/app';
+import { LocalNotifications } from '@capacitor/local-notifications';
 
-window.Native = { Capacitor, Preferences, Filesystem, Directory, Encoding, Share, App };
+window.Native = { Capacitor, Preferences, Filesystem, Directory, Encoding, Share, App, LocalNotifications };

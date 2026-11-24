@@ -83,6 +83,7 @@ function freshState() {
     debts: [],        // { id, kind: 'owe'|'owed', person, amount, note, date, due, payments: [{id, amount, date}], createdAt }
     lastCat: null,
     lastBackup: null,
+    recurring: [],    // { id, amount, catId, note, day: 1-31, lastRun: 'YYYY-MM' } — monthly expenses added automatically
     extraCatsAdded: true,
   };
 }
@@ -96,6 +97,7 @@ function isValidState(s) {
 function migrate(s) {
   if (!Array.isArray(s.credits)) s.credits = [];
   if (!Array.isArray(s.debts)) s.debts = [];
+  if (!Array.isArray(s.recurring)) s.recurring = [];
   if (!s.extraCatsAdded) {
     // One-time: add the v1.2 categories, skipping any name the user already has.
     const have = new Set(s.categories.map(c => c.name.trim().toLowerCase()));
@@ -187,6 +189,66 @@ const getCat = id => state.categories.find(c => c.id === id);
 const activeCats = () => state.categories.filter(c => !c.archived);
 const monthExpenses = k => state.expenses.filter(e => e.date.startsWith(k));
 const monthCredits = k => state.credits.filter(c => c.date.startsWith(k));
+
+/* ---------- Recurring expenses ----------
+   Each item adds one expense per month on its day (or the month's last day).
+   lastRun is the last month already handled, so it never adds twice. */
+const recDate = (m, day) => m + '-' + pad(Math.min(day, daysInMonth(m)));
+
+function runRecurring() {
+  let added = 0;
+  const today = todayKey();
+  for (const r of state.recurring) {
+    for (let m = addMonths(r.lastRun, 1); m <= curMonth(); m = addMonths(m, 1)) {
+      const date = recDate(m, r.day);
+      if (date > today) break;
+      if (!getCat(r.catId)) { r.lastRun = m; continue; }
+      ensureMonth(m);
+      state.expenses.push({ id: uid(), amount: r.amount, catId: r.catId, note: r.note, date, createdAt: Date.now(), recId: r.id });
+      r.lastRun = m;
+      added++;
+    }
+  }
+  if (added) save();
+  return added;
+}
+
+/* ---------- Debt reminders (phone notifications) ----------
+   For each open debt with a due date: one reminder the day before and one on
+   the day, at 9 am. Everything is cancelled and rescheduled on every change. */
+const noteId = (s, n) => { let h = n; for (const ch of s) h = (h * 31 + ch.charCodeAt(0)) | 0; return Math.abs(h) % 2147483000 + 1; };
+
+async function ensureNotifyPermission() {
+  if (!Native) return false;
+  try {
+    let p = await Native.LocalNotifications.checkPermissions();
+    if (p.display === 'prompt' || p.display === 'prompt-with-rationale') p = await Native.LocalNotifications.requestPermissions();
+    return p.display === 'granted';
+  } catch (e) { return false; }
+}
+
+async function syncReminders() {
+  if (!Native) return;
+  try {
+    const LN = Native.LocalNotifications;
+    const pending = await LN.getPending();
+    if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+    if ((await LN.checkPermissions()).display !== 'granted') return;
+    const now = Date.now(), list = [];
+    for (const d of state.debts) {
+      if (!d.due || !debtLeft(d)) continue;
+      const due = parseDate(d.due);
+      const msg = (when) => d.kind === 'owe'
+        ? `Pay ${d.person} ${fmt(debtLeft(d))} — due ${when}`
+        : `${d.person} should give you ${fmt(debtLeft(d))} — due ${when}`;
+      [[-1, 'tomorrow'], [0, 'today']].forEach(([off, when], i) => {
+        const at = new Date(due.getFullYear(), due.getMonth(), due.getDate() + off, 9, 0, 0);
+        if (at.getTime() > now) list.push({ id: noteId(d.id, i), title: d.kind === 'owe' ? '💸 Debt to pay' : '💰 Money to receive', body: msg(when), schedule: { at, allowWhileIdle: true }, isExactNotification: false });
+      });
+    }
+    if (list.length) await LN.schedule({ notifications: list });
+  } catch (e) { /* reminders are optional */ }
+}
 
 /* ---------- Debts ----------
    'owe'  = money I have to give back.  'owed' = money others have to give me.
@@ -377,7 +439,12 @@ function viewExpenses() {
   const list = sortedByDate(ui.filter === 'all' ? s.exps : s.exps.filter(e => e.catId === ui.filter));
   const total = list.reduce((a, e) => a + e.amount, 0);
 
-  let html = `<div class="chips">
+  let html = `<div class="list" style="margin-bottom:10px"><button class="row" data-act="recurring">
+    <span class="ico">🔁</span>
+    <span class="grow"><span class="name" style="display:block">Recurring expenses</span><span class="sub">${state.recurring.length ? `${state.recurring.length} repeat every month` : 'Netflix, internet, rent… added automatically'}</span></span>
+    <span class="chev">›</span>
+  </button></div>
+  <div class="chips">
     <button class="chip ${ui.filter === 'all' ? 'on' : ''}" data-act="filter" data-id="all">All</button>
     ${usedCats.map(c => `<button class="chip ${ui.filter === c.id ? 'on' : ''}" data-act="filter" data-id="${esc(c.id)}">${esc(c.icon)} ${esc(c.name)}</button>`).join('')}
   </div>
@@ -804,6 +871,7 @@ function debtSheet(d) {
     if (amount > left) { shake($('.amount-field', sheet)); return toast(`Only ${fmt(left)} is left`); }
     d.payments.push({ id: uid(), amount, date: $('#pDate', sheet).value || todayKey() });
     save();
+    syncReminders();
     render();
     debtSheet(d);
     toast(debtLeft(d) ? `${owe ? 'Paid' : 'Received'} ${fmt(amount)}` : 'Settled ✓');
@@ -815,6 +883,7 @@ function removePayment(id, pid) {
   if (!d) return;
   d.payments = d.payments.filter(p => p.id !== pid);
   save();
+  syncReminders();
   render();
   debtSheet(d);
 }
@@ -874,6 +943,8 @@ function debtFormSheet(debt) {
     render();
     debtSheet(d);
     toast(editing ? 'Debt updated' : 'Debt added');
+    if (fields.due) ensureNotifyPermission().then(ok => { if (ok) syncReminders(); else if (Native) toast('Allow notifications in phone settings to get due-date reminders'); });
+    else syncReminders();
   });
 }
 
@@ -882,13 +953,120 @@ function deleteDebt(id) {
   if (idx < 0) return;
   const [removed] = state.debts.splice(idx, 1);
   save();
+  syncReminders();
   closeSheet();
   render();
   toast(`Deleted debt with ${removed.person}`, () => {
     state.debts.splice(idx, 0, removed);
     save();
+    syncReminders();
     render();
   });
+}
+
+function recurringSheet() {
+  const items = state.recurring.slice().sort((a, b) => a.day - b.day);
+  const sheet = openSheet(`${sheetHead('Recurring expenses')}
+    <p class="hint" style="margin-top:0">Added automatically every month on the chosen day. Edit the amount any time. It applies from the next month.</p>
+    ${items.length ? `<div class="list" style="margin-top:12px">${items.map(r => {
+      const c = getCat(r.catId) || { name: 'Uncategorised', icon: '❔', color: '#64748b' };
+      return `<button class="row" data-act="edit-recurring" data-id="${esc(r.id)}">
+        <span class="ico" style="--c:${esc(c.color)}">${esc(c.icon)}</span>
+        <span class="grow"><span class="name" style="display:block">${esc(r.note || c.name)}</span><span class="sub">Every month on the ${r.day}${['th','st','nd','rd'][(r.day % 100 > 10 && r.day % 100 < 14) || r.day % 10 > 3 ? 0 : r.day % 10]}</span></span>
+        <span class="amt">${fmt(r.amount)}</span>
+      </button>`;
+    }).join('')}</div>` : `<div class="empty"><span class="em">🔁</span>Nothing yet.</div>`}
+    <button class="btn dashed" data-act="add-recurring">+ Add recurring expense</button>`);
+  return sheet;
+}
+
+function recurringFormSheet(rec) {
+  const editing = !!rec;
+  const cats = activeCats();
+  let catId = rec ? rec.catId : cats[0]?.id;
+  const pickable = rec && getCat(rec.catId)?.archived ? [...cats, getCat(rec.catId)] : cats;
+  const sheet = openSheet(`${sheetHead(editing ? 'Edit recurring' : 'New recurring')}
+    <form id="recForm" autocomplete="off">
+      <label class="amount-field"><span>Rs</span>
+        <input id="rAmount" inputmode="decimal" enterkeyhint="done" placeholder="0" value="${rec ? rec.amount : ''}" aria-label="Amount in rupees">
+      </label>
+      <div class="field-label">Category</div>
+      <div class="cat-grid" id="catGrid">
+        ${pickable.map(c => `<button type="button" class="cat-chip ${c.id === catId ? 'on' : ''}" data-cat="${esc(c.id)}"><span class="e">${esc(c.icon)}</span>${esc(c.name)}</button>`).join('')}
+      </div>
+      <div class="field-label">Details</div>
+      <div class="two">
+        <input class="input" id="rNote" maxlength="80" placeholder="Name, e.g. Netflix" value="${esc(rec?.note)}">
+        <input class="input" id="rDay" type="number" inputmode="numeric" min="1" max="31" placeholder="Day" value="${rec ? rec.day : ''}" aria-label="Day of month">
+      </div>
+      <p class="hint">Day of the month (1–31). Short months use their last day.</p>
+      <div class="sheet-actions">
+        ${editing ? `<button type="button" class="btn danger" data-act="delete-recurring" data-id="${esc(rec.id)}">Delete</button>` : ''}
+        <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Save'}</button>
+      </div>
+    </form>`);
+  if (!editing) $('#rAmount', sheet).focus();
+  $('#catGrid', sheet).addEventListener('click', ev => {
+    const chip = ev.target.closest('.cat-chip');
+    if (!chip) return;
+    catId = chip.dataset.cat;
+    sheet.querySelectorAll('.cat-chip').forEach(c => c.classList.toggle('on', c === chip));
+  });
+  $('#recForm', sheet).addEventListener('submit', ev => {
+    ev.preventDefault();
+    const amount = parseAmount($('#rAmount', sheet).value);
+    if (!amount) { shake($('.amount-field', sheet)); return toast('Enter an amount'); }
+    const day = parseInt($('#rDay', sheet).value, 10);
+    if (!(day >= 1 && day <= 31)) { shake($('#rDay', sheet)); $('#rDay', sheet).focus(); return toast('Enter a day from 1 to 31'); }
+    if (!catId) return toast('Pick a category');
+    const note = $('#rNote', sheet).value.trim();
+    if (editing) Object.assign(rec, { amount, catId, note, day });
+    else {
+      // If this month's day has already passed, assume it was entered by hand: start next month.
+      const passed = recDate(curMonth(), day) <= todayKey();
+      state.recurring.push({ id: uid(), amount, catId, note, day, lastRun: passed ? curMonth() : addMonths(curMonth(), -1) });
+    }
+    runRecurring();
+    save();
+    render();
+    recurringSheet();
+    toast(editing ? 'Saved' : 'Recurring expense added');
+  });
+}
+
+function deleteRecurring(id) {
+  const idx = state.recurring.findIndex(r => r.id === id);
+  if (idx < 0) return;
+  const [removed] = state.recurring.splice(idx, 1);
+  save();
+  render();
+  recurringSheet();
+  toast('Recurring expense removed', () => { state.recurring.splice(idx, 0, removed); save(); render(); recurringSheet(); });
+}
+
+function searchSheet() {
+  const sheet = openSheet(`<div class="search-box">${sheetHead('Search')}
+    <input class="input" id="qBox" type="search" enterkeyhint="search" placeholder="Note, category, person or amount" autocomplete="off"></div>
+    <div id="qResults"></div>`);
+  const box = $('#qBox', sheet), out = $('#qResults', sheet);
+  box.focus();
+  const run = () => {
+    const words = box.value.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) { out.innerHTML = `<div class="empty"><span class="em">🔍</span>Search all months: expenses, credits and debts.</div>`; return; }
+    const hit = hay => words.every(w => hay.includes(w));
+    const exps = state.expenses.filter(e => hit([e.note, getCat(e.catId)?.name, e.amount, e.date, monthLabel(e.date.slice(0, 7))].join(' ').toLowerCase()));
+    const creds = state.credits.filter(c => hit(['credit', c.note, c.amount, c.date, monthLabel(c.date.slice(0, 7))].join(' ').toLowerCase()));
+    const debts = state.debts.filter(d => hit(['debt', d.person, d.note, d.amount, d.date].join(' ').toLowerCase()));
+    const total = exps.reduce((a, e) => a + e.amount, 0);
+    let html = '';
+    if (exps.length) html += `<div class="total-line"><span class="muted">${exps.length} expense${exps.length === 1 ? '' : 's'}</span><b>${fmt(total)}</b></div>
+      <div class="list">${sortedByDate(exps).slice(0, 80).map(e => `<div class="muted" style="font-size:12px;padding:8px 14px 0">${esc(dayLabel(e.date))}${e.date.slice(0, 4) !== String(new Date().getFullYear()) ? ' ' + e.date.slice(0, 4) : ''}</div>${txHTML(e)}`).join('')}</div>`;
+    if (creds.length) html += `<div class="section-head"><h2>Credit</h2></div><div class="list">${sortedByDate(creds).slice(0, 40).map(creditHTML).join('')}</div>`;
+    if (debts.length) html += `<div class="section-head"><h2>Debt</h2></div><div class="list">${debts.map(debtRowHTML).join('')}</div>`;
+    out.innerHTML = html || `<div class="empty"><span class="em">🤷</span>Nothing found.</div>`;
+  };
+  box.addEventListener('input', run);
+  run();
 }
 
 function categorySheet(cat) {
@@ -1100,7 +1278,9 @@ function restoreFromFile(file) {
     if (!confirm(`Restore this backup with ${data.expenses.length} expenses, ${data.credits.length} credits and ${data.debts.length} debts? It replaces everything currently in the app.`)) return;
     state = data;
     ensureMonth(curMonth());
+    runRecurring();
     save();
+    syncReminders();
     ui.filter = 'all';
     closeSheet();
     render();
@@ -1115,6 +1295,7 @@ function eraseAll() {
   state = freshState();
   ensureMonth(curMonth());
   save();
+  syncReminders();
   ui.month = curMonth();
   ui.filter = 'all';
   closeSheet();
@@ -1191,6 +1372,11 @@ document.addEventListener('click', ev => {
     case 'add-credit': creditSheet(null); break;
     case 'edit-credit': { const c = state.credits.find(x => x.id === el.dataset.id); if (c) creditSheet(c); break; }
     case 'delete-credit': deleteCredit(el.dataset.id); break;
+    case 'search': searchSheet(); break;
+    case 'recurring': recurringSheet(); break;
+    case 'add-recurring': recurringFormSheet(null); break;
+    case 'edit-recurring': { const r = state.recurring.find(x => x.id === el.dataset.id); if (r) recurringFormSheet(r); break; }
+    case 'delete-recurring': deleteRecurring(el.dataset.id); break;
     case 'add-debt': debtFormSheet(null); break;
     case 'open-debt': { const d = getDebt(el.dataset.id); if (d) debtSheet(d); break; }
     case 'edit-debt': { const d = getDebt(el.dataset.id); if (d) debtFormSheet(d); break; }
@@ -1230,15 +1416,20 @@ document.addEventListener('visibilitychange', () => {
     ensureMonth(now);
     save();
   }
+  const n = runRecurring();
   render();
+  if (n) toast(`Added ${n} recurring expense${n === 1 ? '' : 's'}`);
 });
 
 /* ---------- Start ---------- */
 render();
 loadNative().then(() => {
   ensureMonth(curMonth());
+  const n = runRecurring();
   save();
   render();
+  syncReminders();
+  if (n) toast(`Added ${n} recurring expense${n === 1 ? '' : 's'}`);
 });
 
 if (!Native && 'serviceWorker' in navigator && location.protocol !== 'file:') {
