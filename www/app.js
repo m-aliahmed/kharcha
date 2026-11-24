@@ -441,7 +441,7 @@ function viewExpenses() {
 
   let html = `<div class="list" style="margin-bottom:10px"><button class="row" data-act="recurring">
     <span class="ico">🔁</span>
-    <span class="grow"><span class="name" style="display:block">Recurring expenses</span><span class="sub">${state.recurring.length ? `${state.recurring.length} repeat every month` : 'Netflix, internet, rent… added automatically'}</span></span>
+    <span class="grow"><span class="name" style="display:block">Recurring expenses</span><span class="sub">${state.recurring.length ? `${state.recurring.length} repeat every month` : 'Turn on “Repeat every month” on any expense'}</span></span>
     <span class="chev">›</span>
   </button></div>
   <div class="chips">
@@ -691,11 +691,16 @@ function expenseSheet(exp) {
   let newIcon = '📦';
   // Show an archived category in the picker if this expense uses it.
   const pickable = exp && getCat(exp.catId)?.archived ? [...cats, getCat(exp.catId)] : cats;
+  const linkedRec = exp && exp.recId ? state.recurring.find(r => r.id === exp.recId) : null;
 
   const sheet = openSheet(`${sheetHead(editing ? 'Edit expense' : 'Add expense')}
     <form id="expForm" autocomplete="off">
       <label class="amount-field"><span>Rs</span>
         <input id="fAmount" inputmode="decimal" enterkeyhint="done" placeholder="0" value="${exp ? exp.amount : ''}" aria-label="Amount in rupees">
+      </label>
+      <label class="switch-row">
+        <span><b>🔁 Repeat every month</b><small>Added automatically on this day each month</small></span>
+        <input type="checkbox" class="switch" id="fRepeat" ${linkedRec ? 'checked' : ''}>
       </label>
       <div class="field-label">Category</div>
       <div class="cat-grid" id="catGrid">
@@ -748,17 +753,35 @@ function expenseSheet(exp) {
       const same = activeCats().find(c => c.name.toLowerCase() === newName.toLowerCase());
       catId = (same || addCategory(newName, newIcon, 0, d.slice(0, 7))).id;
     }
+    let e = exp;
     if (editing) {
       Object.assign(exp, { amount, catId, note, date: d });
     } else {
-      state.expenses.push({ id: uid(), amount, catId, note, date: d, createdAt: Date.now() });
+      e = { id: uid(), amount, catId, note, date: d, createdAt: Date.now() };
+      state.expenses.push(e);
       state.lastCat = catId;
+    }
+    // "Repeat every month": create, update or remove the matching recurring item.
+    const repeat = $('#fRepeat', sheet).checked;
+    const day = parseInt(d.slice(8), 10);
+    if (repeat && linkedRec) {
+      Object.assign(linkedRec, { amount, catId, note, day });
+    } else if (repeat) {
+      // This expense counts as the month's entry; the next one is added next month.
+      const m = d.slice(0, 7);
+      const lastRun = m >= curMonth() ? m : (recDate(curMonth(), day) <= todayKey() ? curMonth() : addMonths(curMonth(), -1));
+      const r = { id: uid(), amount, catId, note, day, lastRun };
+      state.recurring.push(r);
+      e.recId = r.id;
+    } else if (linkedRec) {
+      state.recurring = state.recurring.filter(r => r !== linkedRec);
+      delete e.recId;
     }
     save();
     closeSheet();
     if (d.slice(0, 7) !== ui.month) ui.month = d.slice(0, 7);
     render();
-    toast(`${editing ? 'Updated' : 'Added'} ${fmt(amount)} · ${getCat(catId)?.name ?? ''}`);
+    toast(`${editing ? 'Updated' : 'Added'} ${fmt(amount)} · ${getCat(catId)?.name ?? ''}${repeat ? ' · repeats monthly' : ''}`);
   });
 }
 
@@ -967,7 +990,7 @@ function deleteDebt(id) {
 function recurringSheet() {
   const items = state.recurring.slice().sort((a, b) => a.day - b.day);
   const sheet = openSheet(`${sheetHead('Recurring expenses')}
-    <p class="hint" style="margin-top:0">Added automatically every month on the chosen day. Edit the amount any time. It applies from the next month.</p>
+    <p class="hint" style="margin-top:0">These expenses are added automatically every month. To add one, switch on <b>Repeat every month</b> when adding or editing an expense. Changes here apply from next month.</p>
     ${items.length ? `<div class="list" style="margin-top:12px">${items.map(r => {
       const c = getCat(r.catId) || { name: 'Uncategorised', icon: '❔', color: '#64748b' };
       return `<button class="row" data-act="edit-recurring" data-id="${esc(r.id)}">
@@ -975,8 +998,7 @@ function recurringSheet() {
         <span class="grow"><span class="name" style="display:block">${esc(r.note || c.name)}</span><span class="sub">Every month on the ${r.day}${['th','st','nd','rd'][(r.day % 100 > 10 && r.day % 100 < 14) || r.day % 10 > 3 ? 0 : r.day % 10]}</span></span>
         <span class="amt">${fmt(r.amount)}</span>
       </button>`;
-    }).join('')}</div>` : `<div class="empty"><span class="em">🔁</span>Nothing yet.</div>`}
-    <button class="btn dashed" data-act="add-recurring">+ Add recurring expense</button>`);
+    }).join('')}</div>` : `<div class="empty"><span class="em">🔁</span>Nothing yet.</div>`}`);
   return sheet;
 }
 
