@@ -14,8 +14,30 @@ const DEFAULT_CATEGORIES = [
   ['Rent', '🏠'], ['Mobile & Internet', '📱'], ['Health', '💊'], ['Shopping', '🛍️'],
   ['Education', '📚'], ['Other', '📦'],
 ];
-const EMOJIS = ['🛒', '🍔', '☕', '⛽', '🚗', '🚌', '💡', '🔥', '💧', '🏠', '📱', '🌐', '💊', '🏥', '🛍️', '👕',
-  '📚', '🎓', '🎁', '🎉', '✈️', '💼', '👶', '🐾', '💳', '🧾', '🔧', '🎮', '💇', '🕌', '❤️', '📦'];
+// Added in v1.2 (new installs get them from the start, existing data gets them once in migrate()).
+const EXTRA_CATEGORIES = [
+  ['Clothes & Tailor', '👔'], ['Subscriptions', '🧾'], ['Entertainment', '🎬'], ['Coffee & Snacks', '☕'],
+  ['Travel', '✈️'], ['Gifts & Family', '🎁'], ['Weddings & Events', '🎉'], ['Personal Care', '💇'],
+  ['Zakat & Charity', '🤲'], ['Gadgets & Electronics', '💻'], ['Sports & Fitness', '🏏'], ['Repairs & Maintenance', '🔧'],
+  ['Savings', '🏦'],
+];
+DEFAULT_CATEGORIES.splice(DEFAULT_CATEGORIES.length - 1, 0, ...EXTRA_CATEGORIES); // keep 'Other' last
+// Icon picker, grouped. Only emoji that older Android versions can draw.
+const EMOJI_GROUPS = [
+  ['Food & drink', '🛒 🍔 🍕 🍟 🌭 🥪 🌮 🍗 🍖 🥩 🍳 🥞 🍞 🥐 🥖 🧀 🥚 🍚 🍛 🍜 🍝 🍲 🥗 🍱 🍣 🍤 🍢 🍡 🍩 🍪 🎂 🍰 🧁 🍫 🍬 🍦 🍨 🍿 🥤 🧃 🥛 ☕ 🍵 🧋 🍺 🍷 🍎 🍌 🍉 🍇 🍊 🥭 🍓 🍅 🥕 🌽 🥦 🥔 🧅 🧄 🥜 🍯'],
+  ['Transport', '⛽ 🚗 🚕 🚙 🚌 🚐 🏍️ 🛵 🚲 🛺 🚆 🚇 ✈️ 🚁 🚢 ⛴️ 🚚 🚛 🚜 🛞 🚦 🅿️ 🛣️ 🧳 🗺️ ⛺'],
+  ['Home & bills', '🏠 🏡 🏢 🏬 🏘️ 🛏️ 🛋️ 🚪 🪑 🚿 🛁 🚽 🧺 🧹 🧼 🧽 🧴 🧯 🔑 🔒 💡 🔌 🔋 🔥 💧 🚰 ♨️ ❄️ 🌡️ 🪟 📺 📻 🧊 🍳 🔔 🗑️ 📮'],
+  ['Phone & tech', '📱 ☎️ 📞 🌐 📶 💻 🖥️ ⌨️ 🖱️ 🖨️ 📷 🎥 🎧 🎤 🔊 🎮 🕹️ 💾 📡 🔭 ⌚ 📲 🛰️'],
+  ['Health & body', '💊 💉 🩺 🏥 🩹 🦷 👓 🧠 🦴 🩸 🌡️ 🧘 🏃 🏋️ 🚴 ⚽ 🏏 🏀 🎾 🏸 🏊 💪 🧖 💇 💅 💈 🪒 🧔'],
+  ['Shopping & clothes', '🛍️ 👕 👖 👗 👚 🧥 🧣 🧤 🧦 👞 👟 👠 👡 🎒 👜 👛 👑 💍 💎 👔 🕶️ 🧢 👒 ⌚ 🛒 🏷️ 🪞'],
+  ['Money', '💰 💵 💴 💳 🧾 🏦 💸 🪙 📈 📉 💹 🤝 🏧 🧮 📒 💲 🪪'],
+  ['Family & kids', '👶 🍼 🧸 👨‍👩‍👧 👪 👦 👧 👨 👩 👴 👵 🤱 🎒 🚸 🪁 🧩 🎈 🎀 🎠'],
+  ['Pets & nature', '🐾 🐶 🐱 🐦 🐟 🐴 🐄 🐐 🐑 🐓 🐇 🌱 🌳 🌹 🌻 🌿 🍀 🌾 🪴 ☀️ 🌧️ ⛅ 🌙'],
+  ['Education & work', '📚 🎓 ✏️ 📝 📖 🏫 🖊️ 📐 🔬 🧪 💼 🗂️ 📁 🏭 🔧 🔨 🛠️ ⚙️ 🔩 🪛 🪚 👷 🧑‍💼 🖇️ 📎 📌 📊'],
+  ['Fun & travel', '🎉 🎊 🎁 🎬 🍿 🎵 🎶 🎸 🎹 🎨 🎭 🎯 🎲 ♟️ 🎳 🎪 🎤 🎟️ 🏖️ 🏔️ 🏕️ 🏨 🌍 🧭 📸'],
+  ['Faith & giving', '🕌 🕋 📿 🤲 🕯️ ⭐ 🌙 ❤️ 💝 🙏 🤝 🎗️ 🕊️ 🩷 ✨'],
+  ['Other', '📦 📬 📃 🔖 🧷 🪢 ⚠️ ❓ ❗ ✅ 🔄 ♻️ 🚨 🛡️ ⚖️ 🔍 🏆 🥇 🎖️ 🧿 🪄 🎰'],
+].map(([label, list]) => [label, list.split(' ')]);
 
 /* ---------- Small helpers ---------- */
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -58,8 +80,10 @@ function freshState() {
     budgets: {},      // { 'YYYY-MM': { catId: amount } } — snapshot of budgets for each month
     expenses: [],     // { id, amount, catId, note, date: 'YYYY-MM-DD', createdAt }
     credits: [],      // { id, amount, note, date: 'YYYY-MM-DD', createdAt } — money received
+    debts: [],        // { id, kind: 'owe'|'owed', person, amount, note, date, due, payments: [{id, amount, date}], createdAt }
     lastCat: null,
     lastBackup: null,
+    extraCatsAdded: true,
   };
 }
 
@@ -68,9 +92,19 @@ function isValidState(s) {
     && s.budgets && typeof s.budgets === 'object';
 }
 
-// Data and backups from before v1.1 have no credits list.
+// Data and backups from before v1.1 have no credits list; before v1.2 no debts list.
 function migrate(s) {
   if (!Array.isArray(s.credits)) s.credits = [];
+  if (!Array.isArray(s.debts)) s.debts = [];
+  if (!s.extraCatsAdded) {
+    // One-time: add the v1.2 categories, skipping any name the user already has.
+    const have = new Set(s.categories.map(c => c.name.trim().toLowerCase()));
+    for (const [name, icon] of EXTRA_CATEGORIES) {
+      if (have.has(name.toLowerCase())) continue;
+      s.categories.push({ id: 'c' + uid(), name, icon, color: PALETTE[s.categories.length % PALETTE.length], budget: 0, archived: false });
+    }
+    s.extraCatsAdded = true;
+  }
   return s;
 }
 
@@ -154,6 +188,19 @@ const activeCats = () => state.categories.filter(c => !c.archived);
 const monthExpenses = k => state.expenses.filter(e => e.date.startsWith(k));
 const monthCredits = k => state.credits.filter(c => c.date.startsWith(k));
 
+/* ---------- Debts ----------
+   'owe'  = money I have to give back.  'owed' = money others have to give me.
+   Not tied to months: a debt stays open until it is fully paid. Payments are
+   tracked on the debt itself and don't touch expenses, credits or budgets. */
+const debtPaid = d => round2(d.payments.reduce((a, p) => a + p.amount, 0));
+const debtLeft = d => round2(Math.max(0, d.amount - debtPaid(d)));
+const getDebt = id => state.debts.find(d => d.id === id);
+const debtTotals = () => {
+  let owe = 0, owed = 0;
+  for (const d of state.debts) (d.kind === 'owe' ? (owe += debtLeft(d)) : (owed += debtLeft(d)));
+  return { owe: round2(owe), owed: round2(owed) };
+};
+
 function monthStats(k) {
   const exps = monthExpenses(k);
   const byCat = {};
@@ -183,20 +230,21 @@ const ui = { tab: 'home', month: curMonth(), filter: 'all', sheetOpen: false, ig
 
 /* ---------- Rendering ---------- */
 function render() {
-  const titles = { home: 'Kharcha', expenses: 'Expenses', credits: 'Credit', budgets: 'Budgets', history: 'History' };
+  const titles = { home: 'Kharcha', expenses: 'Expenses', credits: 'Credit', debts: 'Debt', budgets: 'Budgets', history: 'History' };
   $('#title').textContent = titles[ui.tab];
   document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('on', b.dataset.tab === ui.tab));
 
   const isCur = ui.month === curMonth();
-  $('#monthbar').classList.toggle('hidden', ui.tab === 'history');
+  $('#monthbar').classList.toggle('hidden', ui.tab === 'history' || ui.tab === 'debts');
   $('#monthLabel').innerHTML = esc(monthLabel(ui.month)) + (isCur ? '' : '<small>Tap for this month</small>');
   $('#nextMonth').disabled = ui.month >= curMonth();
   $('#fab').classList.toggle('hidden', ui.tab === 'history' || ui.tab === 'budgets');
-  $('#fab').dataset.act = ui.tab === 'credits' ? 'add-credit' : 'add-expense';
-  $('#fab').setAttribute('aria-label', ui.tab === 'credits' ? 'Add credit' : 'Add expense');
+  const fab = { credits: ['add-credit', 'Add credit'], debts: ['add-debt', 'Add debt'] }[ui.tab] || ['add-expense', 'Add expense'];
+  $('#fab').dataset.act = fab[0];
+  $('#fab').setAttribute('aria-label', fab[1]);
 
   const view = $('#view');
-  view.innerHTML = ({ home: viewHome, expenses: viewExpenses, credits: viewCredits, budgets: viewBudgets, history: viewHistory })[ui.tab]();
+  view.innerHTML = ({ home: viewHome, expenses: viewExpenses, credits: viewCredits, debts: viewDebts, budgets: viewBudgets, history: viewHistory })[ui.tab]();
 }
 
 function barHTML(spent, budget, st) {
@@ -273,6 +321,18 @@ function viewHome() {
     </span>
     <span class="chev">›</span>
   </button></div>`;
+
+  const dt = debtTotals();
+  if (dt.owe || dt.owed) {
+    html += `<div class="list credit-row"><button class="row" data-act="goto" data-tab="debts">
+      <span class="ico">🤝</span>
+      <span class="grow">
+        <span class="name" style="display:block">Debt</span>
+        <span class="sub">${dt.owe ? `<span class="neg">You owe ${fmt(dt.owe)}</span>` : ''}${dt.owe && dt.owed ? ' · ' : ''}${dt.owed ? `<span class="in">Owed to you ${fmt(dt.owed)}</span>` : ''}</span>
+      </span>
+      <span class="chev">›</span>
+    </button></div>`;
+  }
 
   if (!s.budget && activeCats().length) {
     html += `<button class="banner" data-act="goto" data-tab="budgets">
@@ -358,6 +418,53 @@ function viewCredits() {
     return html + `<div class="card empty"><span class="em">💰</span>No credit in ${esc(monthLabel(k))}. Tap <b>+</b> to add money that came in.</div>`;
   }
   return html + `<div class="list">${list.map(creditHTML).join('')}</div>`;
+}
+
+function dueLabel(d) {
+  if (!d.due || !debtLeft(d)) return '';
+  const days = Math.round((parseDate(d.due) - parseDate(todayKey())) / 864e5);
+  const when = parseDate(d.due).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  if (days < 0) return `<span class="neg">Overdue since ${when}</span>`;
+  if (days === 0) return `<span class="neg">Due today</span>`;
+  return `Due ${when}`;
+}
+
+function debtRowHTML(d) {
+  const left = debtLeft(d), paid = debtPaid(d);
+  const color = d.kind === 'owe' ? '#ef4444' : '#0f9d76';
+  const sub = [d.note && esc(d.note), dueLabel(d), !left && 'Settled ✓'].filter(Boolean).join(' · ');
+  return `<button class="row" data-act="open-debt" data-id="${esc(d.id)}">
+    <span class="ico" style="--c:${color}">${d.kind === 'owe' ? '📤' : '📥'}</span>
+    <span class="grow">
+      <span class="line1"><span class="name">${esc(d.person)}</span><span class="amt ${left ? (d.kind === 'owe' ? 'neg' : 'in') : 'muted'}">${fmt(left || d.amount)}</span></span>
+      ${paid && left ? barHTML(paid, d.amount, 'ok') : ''}
+      <span class="sub">${paid && left ? `${fmt(paid)} of ${fmt(d.amount)} ${d.kind === 'owe' ? 'paid' : 'received'}${sub ? ' · ' : ''}` : ''}${sub}</span>
+    </span>
+  </button>`;
+}
+
+function viewDebts() {
+  const t = debtTotals();
+  const byDue = (a, b) => (a.due || '9999').localeCompare(b.due || '9999') || b.createdAt - a.createdAt;
+  const open = k => state.debts.filter(d => d.kind === k && debtLeft(d) > 0).sort(byDue);
+  const settled = state.debts.filter(d => !debtLeft(d)).sort((a, b) => b.createdAt - a.createdAt);
+  const net = round2(t.owed - t.owe);
+
+  let html = `<div class="card">
+    <div class="settings-row"><span class="muted">I have to give</span><b class="${t.owe ? 'neg' : ''}">${fmt(t.owe)}</b></div>
+    <div class="settings-row"><span class="muted">I will receive</span><b class="${t.owed ? 'in' : ''}">${fmt(t.owed)}</b></div>
+    ${t.owe && t.owed ? `<div class="settings-row"><span class="muted">Net</span><b class="${net < 0 ? 'neg' : 'in'}">${net < 0 ? '-' : '+'} ${fmt(Math.abs(net))}</b></div>` : ''}
+  </div>`;
+
+  if (!state.debts.length) {
+    return html + `<div class="card empty"><span class="em">🤝</span>No debts yet. Tap <b>+</b> to add money you owe or money someone owes you.</div>`;
+  }
+  const section = (title, list, none) => `<div class="section-head"><h2>${title}</h2></div>` +
+    (list.length ? `<div class="list">${list.map(debtRowHTML).join('')}</div>` : `<div class="card empty" style="padding:16px">${none}</div>`);
+  html += section('I have to give', open('owe'), 'Nothing to pay back 🎉');
+  html += section('I will receive', open('owed'), 'Nobody owes you right now');
+  if (settled.length) html += `<div class="section-head"><h2>Settled</h2></div><div class="list">${settled.map(debtRowHTML).join('')}</div>`;
+  return html;
 }
 
 function viewBudgets() {
@@ -488,8 +595,11 @@ function sheetHead(title) {
 function shake(el) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
 
 function emojiGridHTML(icon) {
+  const btn = e => `<button type="button" class="${e === icon ? 'on' : ''}" data-emoji="${esc(e)}">${esc(e)}</button>`;
+  const known = EMOJI_GROUPS.some(([, list]) => list.includes(icon));
   return `<div class="emoji-grid" id="emojiGrid">
-    ${[...new Set([icon, ...EMOJIS])].map(e => `<button type="button" class="${e === icon ? 'on' : ''}" data-emoji="${esc(e)}">${esc(e)}</button>`).join('')}
+    ${known ? '' : `<div class="emoji-label">Current</div>${btn(icon)}`}
+    ${EMOJI_GROUPS.map(([label, list]) => `<div class="emoji-label">${esc(label)}</div>${list.map(btn).join('')}`).join('')}
   </div>`;
 }
 
@@ -498,7 +608,7 @@ function onEmojiPick(sheet, pick) {
     const b = ev.target.closest('button[data-emoji]');
     if (!b) return;
     pick(b.dataset.emoji);
-    sheet.querySelectorAll('#emojiGrid button').forEach(x => x.classList.toggle('on', x === b));
+    sheet.querySelectorAll('#emojiGrid button').forEach(x => x.classList.toggle('on', x.dataset.emoji === b.dataset.emoji));
   });
 }
 
@@ -654,6 +764,133 @@ function deleteCredit(id) {
   });
 }
 
+function debtSheet(d) {
+  const left = debtLeft(d), paid = debtPaid(d);
+  const owe = d.kind === 'owe';
+  const verb = owe ? 'Pay' : 'Receive';
+  const sheet = openSheet(`${sheetHead(d.person)}
+    <div class="card" style="margin-top:0">
+      <div class="muted" style="font-size:14px">${owe ? 'You have to give' : 'Will give you'}${d.note ? ' · ' + esc(d.note) : ''}</div>
+      <div style="font-size:30px;font-weight:750;letter-spacing:-.02em" class="${left ? (owe ? 'neg' : 'in') : ''}">${left ? fmt(left) + ' left' : 'Settled ✓'}</div>
+      ${barHTML(paid, d.amount, 'ok')}
+      <div class="hint" style="margin-top:6px">${fmt(paid)} of ${fmt(d.amount)} ${owe ? 'paid' : 'received'} · added ${esc(dayLabel(d.date))}${d.due ? ' · ' + (dueLabel(d) || 'due ' + esc(parseDate(d.due).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }))) : ''}</div>
+    </div>
+    ${left ? `<form id="payForm" autocomplete="off">
+      <div class="field-label">${owe ? 'Pay back' : 'Money received'}</div>
+      <label class="amount-field"><span>Rs</span>
+        <input id="pAmount" inputmode="decimal" enterkeyhint="done" placeholder="0" value="${left}" aria-label="Amount">
+      </label>
+      <div class="two" style="margin-top:10px">
+        <input class="input" id="pDate" type="date" value="${todayKey()}" max="${todayKey()}" required>
+        <button type="submit" class="btn primary">${verb}</button>
+      </div>
+    </form>` : ''}
+    ${d.payments.length ? `<div class="field-label">${owe ? 'Payments made' : 'Payments received'}</div><div class="list">
+      ${d.payments.slice().sort((a, b) => b.date.localeCompare(a.date)).map(p => `<div class="row">
+        <span class="grow"><span class="name" style="display:block">${fmt(p.amount)}</span><span class="sub">${esc(dayLabel(p.date))}</span></span>
+        <button class="link" data-act="del-payment" data-id="${esc(d.id)}" data-pid="${esc(p.id)}">Remove</button>
+      </div>`).join('')}</div>` : ''}
+    <div class="sheet-actions">
+      <button type="button" class="btn danger" data-act="delete-debt" data-id="${esc(d.id)}">Delete</button>
+      <button type="button" class="btn ghost" data-act="edit-debt" data-id="${esc(d.id)}">Edit</button>
+    </div>`);
+
+  const form = $('#payForm', sheet);
+  if (!form) return;
+  form.addEventListener('submit', ev => {
+    ev.preventDefault();
+    const amount = parseAmount($('#pAmount', sheet).value);
+    if (!amount) { shake($('.amount-field', sheet)); return toast('Enter an amount'); }
+    if (amount > left) { shake($('.amount-field', sheet)); return toast(`Only ${fmt(left)} is left`); }
+    d.payments.push({ id: uid(), amount, date: $('#pDate', sheet).value || todayKey() });
+    save();
+    render();
+    debtSheet(d);
+    toast(debtLeft(d) ? `${owe ? 'Paid' : 'Received'} ${fmt(amount)}` : 'Settled ✓');
+  });
+}
+
+function removePayment(id, pid) {
+  const d = getDebt(id);
+  if (!d) return;
+  d.payments = d.payments.filter(p => p.id !== pid);
+  save();
+  render();
+  debtSheet(d);
+}
+
+function debtFormSheet(debt) {
+  const editing = !!debt;
+  let kind = debt ? debt.kind : 'owe';
+  const people = [...new Set(state.debts.map(d => d.person))];
+  const sheet = openSheet(`${sheetHead(editing ? 'Edit debt' : 'Add debt')}
+    <form id="debtForm" autocomplete="off">
+      <div class="cat-grid" id="kindGrid" style="grid-template-columns:1fr 1fr">
+        <button type="button" class="cat-chip ${kind === 'owe' ? 'on' : ''}" data-kind="owe"><span class="e">📤</span>I have to give</button>
+        <button type="button" class="cat-chip ${kind === 'owed' ? 'on' : ''}" data-kind="owed"><span class="e">📥</span>I will receive</button>
+      </div>
+      <div class="field-label">Amount</div>
+      <label class="amount-field"><span>Rs</span>
+        <input id="dAmount" inputmode="decimal" enterkeyhint="next" placeholder="0" value="${debt ? debt.amount : ''}" aria-label="Amount in rupees">
+      </label>
+      <div class="field-label" id="dPersonLbl">Who</div>
+      <input class="input" id="dPerson" list="people" maxlength="40" placeholder="Name" value="${esc(debt?.person)}">
+      <datalist id="people">${people.map(p => `<option value="${esc(p)}">`).join('')}</datalist>
+      <div class="field-label">Note</div>
+      <input class="input" id="dNote" maxlength="80" placeholder="e.g. For bike repair (optional)" value="${esc(debt?.note)}">
+      <div class="two" style="margin-top:6px">
+        <div><div class="field-label">Date</div><input class="input" id="dDate" type="date" value="${debt ? debt.date : todayKey()}" max="${todayKey()}" required></div>
+        <div><div class="field-label">Due (optional)</div><input class="input" id="dDue" type="date" value="${debt?.due || ''}"></div>
+      </div>
+      <div class="sheet-actions">
+        <button type="submit" class="btn primary">${editing ? 'Save changes' : 'Save debt'}</button>
+      </div>
+    </form>`);
+
+  const setLabel = () => { $('#dPersonLbl', sheet).textContent = kind === 'owe' ? 'Give to' : 'Receive from'; };
+  setLabel();
+  if (!editing) $('#dAmount', sheet).focus();
+
+  $('#kindGrid', sheet).addEventListener('click', ev => {
+    const b = ev.target.closest('[data-kind]');
+    if (!b) return;
+    kind = b.dataset.kind;
+    sheet.querySelectorAll('#kindGrid .cat-chip').forEach(c => c.classList.toggle('on', c === b));
+    setLabel();
+  });
+
+  $('#debtForm', sheet).addEventListener('submit', ev => {
+    ev.preventDefault();
+    const amount = parseAmount($('#dAmount', sheet).value);
+    if (!amount) { shake($('.amount-field', sheet)); $('#dAmount', sheet).focus(); return toast('Enter an amount'); }
+    const person = $('#dPerson', sheet).value.trim();
+    if (!person) { shake($('#dPerson', sheet)); $('#dPerson', sheet).focus(); return toast('Enter a name'); }
+    if (editing && amount < debtPaid(debt)) return toast(`Already ${kind === 'owe' ? 'paid' : 'received'} ${fmt(debtPaid(debt))}`);
+    const fields = { kind, amount, person, note: $('#dNote', sheet).value.trim(), date: $('#dDate', sheet).value || todayKey(), due: $('#dDue', sheet).value || '' };
+    let d = debt;
+    if (editing) Object.assign(debt, fields);
+    else { d = { id: uid(), ...fields, payments: [], createdAt: Date.now() }; state.debts.push(d); }
+    save();
+    render();
+    debtSheet(d);
+    toast(editing ? 'Debt updated' : 'Debt added');
+  });
+}
+
+function deleteDebt(id) {
+  const idx = state.debts.findIndex(d => d.id === id);
+  if (idx < 0) return;
+  const [removed] = state.debts.splice(idx, 1);
+  save();
+  closeSheet();
+  render();
+  toast(`Deleted debt with ${removed.person}`, () => {
+    state.debts.splice(idx, 0, removed);
+    save();
+    render();
+  });
+}
+
 function categorySheet(cat) {
   const editing = !!cat;
   const k = ui.month;
@@ -784,6 +1021,7 @@ function settingsSheet() {
     <div class="settings-row"><span class="muted">Last backup</span><b>${esc(last)}</b></div>
     <div class="settings-row"><span class="muted">Expenses saved</span><b>${state.expenses.length}</b></div>
     <div class="settings-row"><span class="muted">Credits saved</span><b>${state.credits.length}</b></div>
+    <div class="settings-row"><span class="muted">Debts saved</span><b>${state.debts.length}</b></div>
     ${canShare ? `<button class="btn primary block" data-act="share-backup">Share backup (Drive, WhatsApp…)</button>` : ''}
     <button class="btn ${canShare ? 'ghost' : 'primary'} block" data-act="download-backup">${Native ? 'Save backup to phone' : 'Download backup file'}</button>
     <button class="btn ghost block" data-act="restore-backup">Restore from backup</button>
@@ -835,6 +1073,9 @@ async function exportCSV() {
   for (const e of sortedByDate(entries).reverse()) {
     lines.push([e.date, e.type, e.cat, e.amount, e.note].map(q).join(','));
   }
+  for (const d of state.debts) {
+    lines.push([d.date, d.kind === 'owe' ? 'Debt (I owe)' : 'Debt (owed to me)', d.person, debtLeft(d), `${d.note || ''} [total ${d.amount}, settled ${debtPaid(d)}]`].map(q).join(','));
+  }
   const csv = '﻿' + lines.join('\r\n');
   const name = `kharcha-export-${todayKey()}.csv`;
   if (!Native) {
@@ -856,7 +1097,7 @@ function restoreFromFile(file) {
     const data = parsed && parsed.app === 'kharcha' ? parsed.data : parsed;
     if (!isValidState(data)) return toast('That file is not a Kharcha backup');
     migrate(data);
-    if (!confirm(`Restore this backup with ${data.expenses.length} expenses and ${data.credits.length} credits? It replaces everything currently in the app.`)) return;
+    if (!confirm(`Restore this backup with ${data.expenses.length} expenses, ${data.credits.length} credits and ${data.debts.length} debts? It replaces everything currently in the app.`)) return;
     state = data;
     ensureMonth(curMonth());
     save();
@@ -869,7 +1110,7 @@ function restoreFromFile(file) {
 }
 
 function eraseAll() {
-  if (!confirm('Erase ALL expenses, credits, categories and budgets? This cannot be undone.')) return;
+  if (!confirm('Erase ALL expenses, credits, debts, categories and budgets? This cannot be undone.')) return;
   if (!confirm('Are you sure? Consider downloading a backup first.')) return;
   state = freshState();
   ensureMonth(curMonth());
@@ -950,6 +1191,11 @@ document.addEventListener('click', ev => {
     case 'add-credit': creditSheet(null); break;
     case 'edit-credit': { const c = state.credits.find(x => x.id === el.dataset.id); if (c) creditSheet(c); break; }
     case 'delete-credit': deleteCredit(el.dataset.id); break;
+    case 'add-debt': debtFormSheet(null); break;
+    case 'open-debt': { const d = getDebt(el.dataset.id); if (d) debtSheet(d); break; }
+    case 'edit-debt': { const d = getDebt(el.dataset.id); if (d) debtFormSheet(d); break; }
+    case 'delete-debt': deleteDebt(el.dataset.id); break;
+    case 'del-payment': removePayment(el.dataset.id, el.dataset.pid); break;
     case 'goto': setTab(el.dataset.tab); break;
     case 'filter-cat': ui.filter = el.dataset.id === '_' ? 'all' : el.dataset.id; setTab('expenses'); break;
     case 'filter': ui.filter = el.dataset.id; render(); break;
